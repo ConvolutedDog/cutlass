@@ -1,0 +1,13 @@
+{
+    "clangd.enable": true,
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "clangd.path": "/home/yangjianchao/Github/llvm-project/build/bin/clangd",
+    "editor.inlayHints.enabled": "on",
+    "editor.inlayHints.padding": true,
+    "clangd.arguments": [
+        "--query-driver=/usr/bin/g++",
+        "--background-index=false"
+    ],
+    "C_Cpp.inlayHints.autoDeclarationTypes.showOnLeft": true,
+    "C_Cpp.inlayHints.autoDeclarationTypes.enabled": true
+}

@@ -71,6 +71,10 @@ endif()
 
 ################################################################################
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+################################################################################
+
 include(${CMAKE_CURRENT_SOURCE_DIR}/CUDA.cmake)
 
 if (CUDA_VERSION VERSION_LESS 11.3)

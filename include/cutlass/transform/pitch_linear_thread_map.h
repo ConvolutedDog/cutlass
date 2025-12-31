@@ -62,7 +62,9 @@ namespace transform {
 /// This ThreadMap is used by SIMT kernels and operand E of the sparse tensor
 /// kernels.
 template <
+  // Thread block level tile shape.
   typename Shape_,
+  // The total number of threads in a thread block.
   int Threads,
   int ElementsPerAccess = 1
 >

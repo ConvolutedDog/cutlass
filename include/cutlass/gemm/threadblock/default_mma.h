@@ -167,6 +167,7 @@ struct DefaultMma<ElementA, LayoutA, kAlignmentA, ElementB, LayoutB,
   // Define iterators over tiles from the A operand
   using IteratorA =
       cutlass::transform::threadblock::PredicatedTileIterator<
+          // MmaCore::Shape::kM, MmaCore::Shape::kK is the block level tile size.
           cutlass::MatrixShape<MmaCore::Shape::kM, MmaCore::Shape::kK>,
           ElementA, LayoutA, 1, typename MmaCore::IteratorThreadMapA, kAlignmentA,
           GatherA, PermuteALayout>;

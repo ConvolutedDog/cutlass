@@ -84,6 +84,8 @@ template <
 class MmaSimt {
 public:
   /// Shape of warp-level matrix operation (concept: GemmShape)
+  ///
+  /// Warp level tile shape.
   using Shape = Shape_;
 
   /// Data type of multiplicand A

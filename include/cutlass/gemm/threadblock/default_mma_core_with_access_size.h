@@ -287,8 +287,11 @@ struct DefaultMmaCoreWithAccessSize<Shape_, WarpShape_, typename platform::enabl
   static_assert(!(WarpShape::kM % WarpNumThreadsM) && !(WarpShape::kN % WarpNumThreadsN),
       "WarpShape must be divisible by ThreadTile shape.");
   static const int LaneLayout = ThreadTileM > 4 && ThreadTileN > 4 ? 2 : 1;
+  // Utilize 128-bit load instructions to process multiple elements at once.
   static const int numElementsA = 128 / sizeof_bits<ElementA>::value;
   static const int numElementsB = 128 / sizeof_bits<ElementB>::value;
+  // Ensure that LaneM/LaneN does not exceed the total number of elements
+  // that each thread needs to process in the M/N dim.
   static const int LaneM = cutlass::const_min(numElementsA, ThreadTileM);
   static const int LaneN = cutlass::const_min(numElementsB, ThreadTileN);
   // these should have max of thread tile also

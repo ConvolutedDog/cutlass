@@ -391,6 +391,10 @@ public:
       {ThreadblockShape::kM, ThreadblockShape::kN, ThreadblockShape::kK},
       args.split_k_slices);
     
+    // Allocate memory for partial result pointers when using split-K serial
+    // reduction. For split-K GEMM, each K-slice computes a partial result
+    // matrix in parallel. It needs to store pointers to all partial result
+    // accumulators for later reduction.
     if (kSplitKSerial && args.split_k_slices > 1) {
 
       bytes += sizeof(int) * size_t(tiled_shape.m()) * size_t(tiled_shape.n());
@@ -479,6 +483,10 @@ public:
 
     cudaError_t result;
 
+    // Size of shared memory required for the threadblock's SharedStorage
+    // structure. This is determined by the threadblock gemm implementation.
+    // This is defines in include/cutlass/gemm/threadblock and you can search
+    // "class SharedStorage {" in this directory.
     int smem_size = int(sizeof(typename GemmKernel::SharedStorage));
 
     if (smem_size >= (48 << 10)) {

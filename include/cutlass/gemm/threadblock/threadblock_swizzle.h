@@ -67,6 +67,20 @@ struct GemmIdentityThreadblockSwizzle {
     GemmCoord tile_size,
     int split_k_slices) {
 
+    // Calculates the tiled grid shape for GEMM kernel dispatch.
+    //
+    // The grid is 3-dimensional, with each thread block processing one tile:
+    // - Grid X: Number of tiles along M dimension
+    // - Grid Y: Number of tiles along N dimension
+    // - Grid Z: Number of partitions in K dimension (split_k_slices)
+    //
+    // Parameters:
+    // - problem_size: Original GEMM dimensions (M, N, K)
+    // - tile_size:    Threadblock tile dimensions (M_tile, N_tile, K_tile)
+    // - split_k_slices: Number of threadblocks partitioning the K dimension
+    //
+    // Note: The K-dimension tiling uses split_k_slices directly rather than
+    //       ceil(problem_size.k() / tile_size.k()), enabling split-K parallelism.
     return GemmCoord(
       (problem_size.m() + tile_size.m() - 1) / tile_size.m(),
       (problem_size.n() + tile_size.n() - 1) / tile_size.n(),

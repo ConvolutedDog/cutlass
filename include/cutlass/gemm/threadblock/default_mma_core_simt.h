@@ -108,8 +108,11 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 1>, ElementA_,
                       layout::ColumnMajor, ElementB_, layout::RowMajor,
                       ElementC_, LayoutC_, arch::OpClassSimt, 2, Operator_
                      > {
+  // Thread block level tile shape.
   using Shape = Shape_;
+  // Warp level tile shape.
   using WarpShape = WarpShape_;
+  // Instruction level tile shape.
   using InstructionShape = GemmShape<1, 1, 1>;
   using ElementA = ElementA_;
   using LayoutA = layout::ColumnMajor;
@@ -118,9 +121,13 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 1>, ElementA_,
   using ElementC = ElementC_;
   using LayoutC = LayoutC_;
   using OperatorClass = arch::OpClassSimt;
+  // The number of warps to be divided along the K dimension, because
+  // a single warp can only process WarpShape::kK elements.
   static int const PartitionsK = Shape::kK / WarpShape::kK;
 
   /// Default Operator
+  ///
+  /// Actually this is the OperatorClass.
   using Operator = Operator_;
 
   /// Number of warps present
@@ -158,13 +165,16 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 1>, ElementA_,
 
   /// ThreadMap of iterator A
   using IteratorThreadMapA = transform::PitchLinearStripminedThreadMap<
+    // Thread block level tile shape.
     layout::PitchLinearShape<Shape::kM, Shape::kK>,
+    // The total number of threads in a thread block.
     kThreads,
     kElementsPerAccess
   >;
 
   /// Shared memory iterator to A operand
   using SmemIteratorA = transform::threadblock::RegularTileIterator<
+    // Thread block level tile shape.
     MatrixShape<Shape::kM, Shape::kK>, 
     ElementA, 
     SmemLayoutA,
@@ -174,13 +184,16 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 1>, ElementA_,
 
   /// Policy of iterator B
   using IteratorThreadMapB = transform::PitchLinearStripminedThreadMap<
+    // Thread block level tile shape.
     layout::PitchLinearShape<Shape::kN, Shape::kK>,
+    // The total number of threads in a thread block.
     kThreads,
     kElementsPerAccess
   >;
 
   /// Shared memory iterator to B operand
   using SmemIteratorB = transform::threadblock::RegularTileIterator<
+    // Thread block level tile shape.
     MatrixShape<Shape::kK, Shape::kN>, 
     ElementB, 
     SmemLayoutB,
@@ -200,11 +213,16 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 1>, ElementA_,
   static_assert(!(WarpShape::kM % WarpNumThreadsM) && !(WarpShape::kN % WarpNumThreadsN),
       "WarpShape must be divisible by ThreadTile shape.");
   static const int LaneLayout = ThreadTileM > 4 && ThreadTileN > 4 ? 2 : 1;
+  // Utilize 128-bit load instructions to process multiple elements at once.
   static const int numElementsA = 128 / sizeof_bits<ElementA>::value;
   static const int numElementsB = 128 / sizeof_bits<ElementB>::value;
+  // Ensure that LaneM/LaneN does not exceed the total number of elements
+  // that each thread needs to process in the M/N dim.
   static const int LaneM = cutlass::const_min(numElementsA, ThreadTileM);
   static const int LaneN = cutlass::const_min(numElementsB, ThreadTileN);
   // these should have max of thread tile also
+  //
+  // Tile shape of single thread.
   using LaneMmaShape = cutlass::gemm::GemmShape<
       LaneM,
       LaneN,
@@ -227,10 +245,20 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 1>, ElementA_,
     >;            /// Used for partial specialization
 
   /// Policy used to define MmaPipelined
+  ///
+  /// MmaPolicy is actually the warp level MMA implementation policy.
+  /// 1. MmaPolicy::Operator is the warp-level MMA operator;
+  /// 2. MmaPolicy::SmemPaddingA is the padding used for A operand in shared memory;
+  /// 3. MmaPolicy::SmemPaddingB is the padding used for B operand in shared memory;
+  /// 4. MmaPolicy::PartitionsK is the number of partitions of K dimension of GEMM.
   using MmaPolicy = MmaPolicy<
+    // MmaPolicy::Operator is the warp-level MMA operator
     MmaWarpSimt,
+    // MmaPolicy::SmemPaddingA is the padding used for A operand in shared memory
     MatrixShape<0, 0>,
+    // MmaPolicy::SmemPaddingB is the padding used for B operand in shared memory
     MatrixShape<0, 0>,
+    // MmaPolicy::PartitionsK is the number of partitions of K dimension of GEMM
     WarpCount::kK
   >;
 };
@@ -362,8 +390,11 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 1>, ElementA_,
   static_assert(!(WarpShape::kM % WarpNumThreadsM) && !(WarpShape::kN % WarpNumThreadsN),
       "WarpShape must be divisible by ThreadTile shape.");
   static const int LaneLayout = ThreadTileM > 4 && ThreadTileN > 4 ? 2 : 1;
+  // Utilize 128-bit load instructions to process multiple elements at once.
   static const int numElementsA = 128 / sizeof_bits<ElementA>::value;
   static const int numElementsB = 128 / sizeof_bits<ElementB>::value;
+  // Ensure that LaneM/LaneN does not exceed the total number of elements
+  // that each thread needs to process in the M/N dim.
   static const int LaneM = cutlass::const_min(numElementsA, ThreadTileM);
   static const int LaneN = cutlass::const_min(numElementsB, ThreadTileN);
 
@@ -374,6 +405,8 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 1>, ElementA_,
                 "Padding must be divisible by Lane");
 
   // these should have max of thread tile also
+  //
+  // Tile shape of single thread.
   using LaneMmaShape = cutlass::gemm::GemmShape<
       LaneM,
       LaneN,
@@ -528,8 +561,11 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 1>, ElementA_,
   static_assert(!(WarpShape::kM % WarpNumThreadsM) && !(WarpShape::kN % WarpNumThreadsN),
       "WarpShape must be divisible by ThreadTile shape.");
   static const int LaneLayout = ThreadTileM > 4 && ThreadTileN > 4 ? 2 : 1;
+  // Utilize 128-bit load instructions to process multiple elements at once.
   static const int numElementsA = 128 / sizeof_bits<ElementA>::value;
   static const int numElementsB = 128 / sizeof_bits<ElementB>::value;
+  // Ensure that LaneM/LaneN does not exceed the total number of elements
+  // that each thread needs to process in the M/N dim.
   static const int LaneM = cutlass::const_min(numElementsA, ThreadTileM);
   static const int LaneN = cutlass::const_min(numElementsB, ThreadTileN);
 
@@ -539,6 +575,8 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 1>, ElementA_,
                 "Padding must be divisible by Lane");
 
   // these should have max of thread tile also
+  //
+  // Tile shape of single thread.
   using LaneMmaShape = cutlass::gemm::GemmShape<
       LaneM,
       LaneN,
@@ -693,8 +731,11 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 1>, ElementA_,
   static_assert(!(WarpShape::kM % WarpNumThreadsM) && !(WarpShape::kN % WarpNumThreadsN),
       "WarpShape must be divisible by ThreadTile shape.");
   static const int LaneLayout = ThreadTileM > 4 && ThreadTileN > 4 ? 2 : 1;
+  // Utilize 128-bit load instructions to process multiple elements at once.
   static const int numElementsA = 128 / sizeof_bits<ElementA>::value;
   static const int numElementsB = 128 / sizeof_bits<ElementB>::value;
+  // Ensure that LaneM/LaneN does not exceed the total number of elements
+  // that each thread needs to process in the M/N dim.
   static const int LaneM = cutlass::const_min(numElementsA, ThreadTileM);
   static const int LaneN = cutlass::const_min(numElementsB, ThreadTileN);
 
@@ -704,6 +745,8 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 1>, ElementA_,
                 "Padding must be divisible by Lane");
 
   // these should have max of thread tile also
+  //
+  // Tile shape of single thread.
   using LaneMmaShape = cutlass::gemm::GemmShape<
       LaneM,
       LaneN,
@@ -1199,11 +1242,16 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 4>, int8_t,
   static_assert(!(WarpShape::kM % WarpNumThreadsM) && !(WarpShape::kN % WarpNumThreadsN),
       "WarpShape must be divisible by ThreadTile shape.");
   static const int LaneLayout = ThreadTileM > 4 && ThreadTileN > 4 ? 2 : 1;
+  // Utilize 128-bit load instructions to process multiple elements at once.
   static const int numElementsA = 128 / sizeof_bits<ElementA>::value;
   static const int numElementsB = 128 / sizeof_bits<ElementB>::value;
+  // Ensure that LaneM/LaneN does not exceed the total number of elements
+  // that each thread needs to process in the M/N dim.
   static const int LaneM = cutlass::const_min(4, ThreadTileM);
   static const int LaneN = cutlass::const_min(4, ThreadTileN);
   // these should have max of thread tile also
+  //
+  // Tile shape of single thread.
   using LaneMmaShape = cutlass::gemm::GemmShape<
       LaneM,
       LaneN,
@@ -1359,11 +1407,16 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 4>, int8_t,
   static_assert(!(WarpShape::kM % WarpNumThreadsM) && !(WarpShape::kN % WarpNumThreadsN),
       "WarpShape must be divisible by ThreadTile shape.");
   static const int LaneLayout = ThreadTileM > 4 && ThreadTileN > 4 ? 2 : 1;
+  // Utilize 128-bit load instructions to process multiple elements at once.
   static const int numElementsA = 128 / sizeof_bits<ElementA>::value;
   static const int numElementsB = 128 / sizeof_bits<ElementB>::value;
+  // Ensure that LaneM/LaneN does not exceed the total number of elements
+  // that each thread needs to process in the M/N dim.
   static const int LaneM = cutlass::const_min(4, ThreadTileM);
   static const int LaneN = cutlass::const_min(4, ThreadTileN);
   // these should have max of thread tile also
+  //
+  // Tile shape of single thread.
   using LaneMmaShape = cutlass::gemm::GemmShape<
       LaneM,
       LaneN,
@@ -1518,11 +1571,16 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 4>, int8_t,
   static_assert(!(WarpShape::kM % WarpNumThreadsM) && !(WarpShape::kN % WarpNumThreadsN),
       "WarpShape must be divisible by ThreadTile shape.");
   static const int LaneLayout = ThreadTileM > 4 && ThreadTileN > 4 ? 2 : 1;
+  // Utilize 128-bit load instructions to process multiple elements at once.
   static const int numElementsA = 128 / sizeof_bits<ElementA>::value;
   static const int numElementsB = 128 / sizeof_bits<ElementB>::value;
+  // Ensure that LaneM/LaneN does not exceed the total number of elements
+  // that each thread needs to process in the M/N dim.
   static const int LaneM = cutlass::const_min(4, ThreadTileM);
   static const int LaneN = cutlass::const_min(4, ThreadTileN);
   // these should have max of thread tile also
+  //
+  // Tile shape of single thread.
   using LaneMmaShape = cutlass::gemm::GemmShape<
       LaneM,
       LaneN,
@@ -1678,11 +1736,16 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 4>, int8_t,
   static_assert(!(WarpShape::kM % WarpNumThreadsM) && !(WarpShape::kN % WarpNumThreadsN),
       "WarpShape must be divisible by ThreadTile shape.");
   static const int LaneLayout = ThreadTileM > 4 && ThreadTileN > 4 ? 2 : 1;
+  // Utilize 128-bit load instructions to process multiple elements at once.
   static const int numElementsA = 128 / sizeof_bits<ElementA>::value;
   static const int numElementsB = 128 / sizeof_bits<ElementB>::value;
+  // Ensure that LaneM/LaneN does not exceed the total number of elements
+  // that each thread needs to process in the M/N dim.
   static const int LaneM = cutlass::const_min(4, ThreadTileM);
   static const int LaneN = cutlass::const_min(4, ThreadTileN);
   // these should have max of thread tile also
+  //
+  // Tile shape of single thread.
   using LaneMmaShape = cutlass::gemm::GemmShape<
       LaneM,
       LaneN,

@@ -58,6 +58,10 @@ template <
 >
 struct Gemm {
 
+  // Mma is the thread block scoped MMA implementation. It has an attribute
+  // WarpCount which means a class that indicates the number of warps in
+  // each thread block. It has an attribute Shape which means the block
+  // level tile size each thread block computes.
   using Mma = Mma_;
   using Epilogue = Epilogue_;
   using OutputOp = typename Epilogue::OutputOp;
@@ -126,9 +130,24 @@ struct Gemm {
       gather_B_indices(gather_B_indices),
       scatter_D_indices(scatter_D_indices) {
 
+      // This means K-dimension tiling, in which each thread block processes
+      // a tile of size Mma::Shape::kK in K dimension. This calculates how
+      // many such tiles are needed to cover the entire problem K size (in
+      // fact, this can be seemed as the sum of the iterations of all thread
+      // blocks). Its formula is ceil(problem_size.k() / Mma::Shape::kK).
       int total_gemm_k_iterations = (problem_size.k() + Mma::Shape::kK - 1) / Mma::Shape::kK;
+
+      // This calculates the number of K-dimension tiling iterations each
+      // thread block needs to perform. Since the total K iterations which
+      // has been calculated as total_gemm_k_iterations, are distributed
+      // across the thread blocks in the K dimension (the number of thread
+      // blocks in the K dimension is grid_tiled_shape.k()), each thread
+      // block handles a portion of the total K iterations. Its formula is
+      // ceil(total_gemm_k_iterations / grid_tiled_shape.k()).
       int gemm_k_iterations = (total_gemm_k_iterations + grid_tiled_shape.k() - 1) / grid_tiled_shape.k();
       
+      // This calculates the actual actual element count in K dimension that
+      // each thread block will process.
       gemm_k_size = gemm_k_iterations * Mma::Shape::kK;
 
     semaphore = workspace;
@@ -199,12 +218,21 @@ struct Gemm {
   }
 
   /// Executes one GEMM
+  ///
+  /// In fact, this params here should be set in the initialize func of class
+  /// cutlass::gemm::device::Gemm, and the SharedStorage union is a set of
+  /// shared memory storage of the main loop and epilogue. The SharedStorage
+  /// of main loop is defined in cutlass::gemm::threadblock::MmaBase.
   CUTLASS_DEVICE
   void operator()(Params const &params, SharedStorage &shared_storage) {
 
     // Compute threadblock location
     ThreadblockSwizzle threadblock_swizzle;
 
+    // Gets the swizzled tile offset for the current thread block. After
+    // applying thread block swizzling, this calculates the coordinates
+    // (logical coordinates) of the tile that this thread block should
+    // process in the swizzled computation space.
     cutlass::gemm::GemmCoord threadblock_tile_offset =
         threadblock_swizzle.get_tile_offset(params.swizzle_log_tile);
 
@@ -216,6 +244,29 @@ struct Gemm {
     }
 
     // Compute initial location in logical coordinates
+    //                                    |-----|-----|  ---
+    //                                    |     |     |   |
+    //                                    |  tb |     |   |--> gemm_k_size
+    //                                    |     |     |   |
+    //                                    |     |     |   |
+    //                                    |-----|-----|  ---
+    //                                    |     |     |
+    //                                    |     |     |
+    //                                    |     |     |   |-----> .n
+    //                                    |     |     |   |
+    //                                    |-----|-----|   v .k
+    //                                       matrix B
+    //                      |-----> .k
+    // |<-gemm_k_size->|    |                   |-----|------> Mma::Shape::kN
+    //                      v .m
+    // |---------------|---------------|  |-----|-----|  ---
+    // |      tb       |               |  | tb  |     |   |--> Mma::Shape::kM
+    // |---------------|---------------|  |-----|-----|  ---
+    // |               |               |  |     |     |
+    // |---------------|---------------|  |-----|-----|
+    // |               |               |  |     |     |
+    // |---------------|---------------|  |-----|-----|
+    //              matrix A                 matrix C
     cutlass::MatrixCoord tb_offset_A{
       threadblock_tile_offset.m() * Mma::Shape::kM,
       threadblock_tile_offset.k() * params.gemm_k_size,
@@ -227,11 +278,32 @@ struct Gemm {
     };
 
     // Problem size is a function of threadblock index in the K dimension
+    //
+    // Calculates the accumulated K-dimension size up to the current tile
+    // offset. This is the total number of K elements processed by all
+    // thread blocks from the start (K-index 0) up to the current tile's
+    // ending point (which means including the current tile). Make sure it
+    // does not exceed the actual size of the problem.
     int problem_size_k = min(
       params.problem_size.k(), 
       (threadblock_tile_offset.k() + 1) * params.gemm_k_size);
 
     // Compute threadblock-scoped matrix multiply-add
+    //
+    // We have known tb_offset_A.column() means the total number of K elements
+    // processed by all preceding thread blocks (from K-index 0 up to, but not
+    // including, the current tile). So problem_size_k - tb_offset_A.column()
+    // is the number of K elements only processed by the current thread blocks,
+    // and gemm_k_iterations is the number of iterations of the current thread
+    // block, for the reason that this thread block can process Mma::Shape::kK
+    // elements each iteration.
+    //
+    // 1. tb_offset_A.column(): The number of K-elements already processed by
+    //    previous blocks).
+    // 2. remaining_k = problem_size_k - tb_offset_A.column(): The K-elements
+    //    remaining for this thread block.
+    // 3. gemm_k_iterations = ceil(remaining_k / Mma::Shape::kK): Iterations
+    //    needed to process the remainder.
     int gemm_k_iterations = (problem_size_k - tb_offset_A.column() + Mma::Shape::kK - 1) / Mma::Shape::kK;
 
     // Compute position within threadblock

@@ -91,9 +91,17 @@ template <
 class MmaBase {
  public:
   ///< Size of the Gemm problem - concept: gemm::GemmShape<>
+  ///
+  /// Block level tile size.
   using Shape = Shape_;
 
   ///< Policy describing tuning details
+  ///
+  /// Policy (MmaPolicy) is actually the warp level MMA implementation policy.
+  /// 1. MmaPolicy::Operator is the warp-level MMA operator;
+  /// 2. MmaPolicy::SmemPaddingA is the padding used for A operand in shared memory;
+  /// 3. MmaPolicy::SmemPaddingB is the padding used for B operand in shared memory;
+  /// 4. MmaPolicy::PartitionsK is the number of partitions of K dimension of GEMM.
   using Policy = Policy_;
 
   //
@@ -120,9 +128,15 @@ class MmaBase {
   static int const kStages = Stages;
 
   /// Tensor reference to the A operand
+  ///
+  /// Operator is the warp level MMA implementation. TensorRefA stores
+  /// the dataptr of the A buffer in shared memory and its layout.
   using TensorRefA = TensorRef<typename Operator::ElementA, typename Operator::LayoutA>;
 
   /// Tensor reference to the B operand
+  ///
+  /// Operator is the warp level MMA implementation. TensorRefB stores
+  /// the dataptr of the B buffer in shared memory and its layout.
   using TensorRefB = TensorRef<typename Operator::ElementB, typename Operator::LayoutB>;
 
   static_assert(kWarpGemmIterations > 1,
@@ -144,6 +158,13 @@ class MmaBase {
     //
 
     /// Shape of the A matrix operand in shared memory
+    ///
+    /// Shape is the block level tile size.
+    ///
+    /// Shape::kK * kStages allow for two stages of pipelined reads, for
+    /// example, when the current thread block is reading the stage-0 tile
+    /// from shared memory, it also issue instructions to load data from
+    /// global memory and store them into the stage-1 tile in shared memory.  
     using ShapeA = MatrixShape<Shape::kM + Policy::SmemPaddingA::kRow,
                                Shape::kK * kStages +
                                    Policy::SmemPaddingA::kColumn>;
@@ -157,6 +178,9 @@ class MmaBase {
     //
     // Data members
     //
+
+    // Here, operand_A and operand_B is the buffer for A and B operand to
+    // stored in shared memory.
 
     /// Buffer for A operand
     AlignedBuffer<typename Operator::ElementA, ShapeA::kCount> operand_A;

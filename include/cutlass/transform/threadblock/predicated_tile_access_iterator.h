@@ -323,6 +323,8 @@ class PredicatedTileAccessIterator;
 
 /// Specialization of PredicatedTileAccessIterator for pitch-linear data.
 ///
+/// In cutlass, it has only been used to iterate the block level tiles in
+/// global memory.
 template <typename Shape_, typename Element_, int AdvanceRank,
           typename ThreadMap_, typename AccessType_, bool Gather,
           typename PermuteLayout>
@@ -335,6 +337,7 @@ class PredicatedTileAccessIterator<Shape_, Element_, layout::PitchLinear,
       "Specialization for pitch-linear iterator may along advance along the "
       "contiguous(rank=0) or strided(rank=1) dimension.");
 
+  // Block level tile shape.
   using Shape = Shape_;
   using Element = Element_;
   using Layout = layout::PitchLinear;

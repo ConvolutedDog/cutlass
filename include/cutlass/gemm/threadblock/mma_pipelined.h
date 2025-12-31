@@ -95,6 +95,7 @@ public:
   ///< Base class
   using Base = MmaBase<Shape_, Policy_, 2>;
 
+  /// Block level tile size.
   using Shape = Shape_;             ///< Size of the Gemm problem - concept: gemm::GemmShape<>
   using IteratorA = IteratorA_;     ///< Iterates over tiles of A operand in global memory
   using IteratorB = IteratorB_;     ///< Iterates over tiles of B operand in global memory

@@ -151,6 +151,8 @@ class PredicatedTileIterator;
 ///            WriteableContiguousTileIteratorConcept |
 ///            MaskedTileIteratorConcept
 ///
+/// In cutlass, it has only been used to iterate the block level tiles in
+/// global memory.
 template <typename Shape_, typename Element_, int AdvanceRank,
           typename ThreadMap_, int AccessSize, bool Gather, typename PermuteLayout>
 class PredicatedTileIterator<Shape_, Element_, layout::PitchLinear, AdvanceRank,
@@ -161,6 +163,7 @@ class PredicatedTileIterator<Shape_, Element_, layout::PitchLinear, AdvanceRank,
       "Specialization for pitch-linear iterator may advance along the "
       "contiguous(rank=0) or strided(rank=1) dimension.");
 
+  // Block level tile shape.
   using Shape = Shape_;
   using Element = Element_;
   using Layout = layout::PitchLinear;

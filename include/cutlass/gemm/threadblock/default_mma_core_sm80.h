@@ -2055,8 +2055,12 @@ struct DefaultMmaCore<Shape_, WarpShape_, InstructionShape_, ElementA_,
   static const int ThreadTileM = WarpShape::kM / WarpNumThreadsM;
   static const int ThreadTileN = WarpShape::kN / WarpNumThreadsN;
   static const int LaneLayout = ThreadTileM > 4 && ThreadTileN > 4 ? 2 : 1;
+  // Utilize 128-bit load instructions to process multiple elements at once.
   static const int numElementsA = 128 / sizeof_bits<ElementA>::value;
   static const int numElementsB = 128 / sizeof_bits<ElementB>::value;
+  // 
+  // Ensure that LaneM/LaneN does not exceed the total number of elements
+  // that each thread needs to process in the M/N dim.
   static const int LaneM = cutlass::const_min(numElementsA, ThreadTileM);
   static const int LaneN = cutlass::const_min(numElementsB, ThreadTileN);
 
@@ -2064,6 +2068,8 @@ struct DefaultMmaCore<Shape_, WarpShape_, InstructionShape_, ElementA_,
                 "Padding must be divisible by Lane");
 
   // these should have max of thread tile also
+  //
+  // Tile shape of single thread.
   using LaneMmaShape = cutlass::gemm::GemmShape<
       LaneM,
       LaneN,
@@ -2210,11 +2216,16 @@ struct DefaultMmaCore<Shape_, WarpShape_, InstructionShape_, ElementA_,
   static const int ThreadTileM = WarpShape::kM / WarpNumThreadsM;
   static const int ThreadTileN = WarpShape::kN / WarpNumThreadsN;
   static const int LaneLayout = ThreadTileM > 4 && ThreadTileN > 4 ? 2 : 1;
+  // Utilize 128-bit load instructions to process multiple elements at once.
   static const int numElementsA = 128 / sizeof_bits<ElementA>::value;
   static const int numElementsB = 128 / sizeof_bits<ElementB>::value;
+  // Ensure that LaneM/LaneN does not exceed the total number of elements
+  // that each thread needs to process in the M/N dim.
   static const int LaneM = cutlass::const_min(numElementsA, ThreadTileM);
   static const int LaneN = cutlass::const_min(numElementsB, ThreadTileN);
   // these should have max of thread tile also
+  //
+  // Tile shape of single thread.
   using LaneMmaShape = cutlass::gemm::GemmShape<
       LaneM,
       LaneN,
@@ -2367,8 +2378,11 @@ struct DefaultMmaCore<Shape_, WarpShape_, InstructionShape_, ElementA_,
   static const int ThreadTileM = WarpShape::kM / WarpNumThreadsM;
   static const int ThreadTileN = WarpShape::kN / WarpNumThreadsN;
   static const int LaneLayout = ThreadTileM > 4 && ThreadTileN > 4 ? 2 : 1;
+  // Utilize 128-bit load instructions to process multiple elements at once.
   static const int numElementsA = 128 / sizeof_bits<ElementA>::value;
   static const int numElementsB = 128 / sizeof_bits<ElementB>::value;
+  // Ensure that LaneM/LaneN does not exceed the total number of elements
+  // that each thread needs to process in the M/N dim.
   static const int LaneM = cutlass::const_min(numElementsA, ThreadTileM);
   static const int LaneN = cutlass::const_min(numElementsB, ThreadTileN);
 
@@ -2376,6 +2390,8 @@ struct DefaultMmaCore<Shape_, WarpShape_, InstructionShape_, ElementA_,
                 "Padding must be divisible by Lane");
 
   // these should have max of thread tile also
+  //
+  // Tile shape of single thread.
   using LaneMmaShape = cutlass::gemm::GemmShape<
       LaneM,
       LaneN,
@@ -2524,8 +2540,11 @@ struct DefaultMmaCore<Shape_, WarpShape_, InstructionShape_, ElementA_,
   static const int ThreadTileM = WarpShape::kM / WarpNumThreadsM;
   static const int ThreadTileN = WarpShape::kN / WarpNumThreadsN;
   static const int LaneLayout = ThreadTileM > 4 && ThreadTileN > 4 ? 2 : 1;
+  // Utilize 128-bit load instructions to process multiple elements at once.
   static const int numElementsA = 128 / sizeof_bits<ElementA>::value;
   static const int numElementsB = 128 / sizeof_bits<ElementB>::value;
+  // Ensure that LaneM/LaneN does not exceed the total number of elements
+  // that each thread needs to process in the M/N dim.
   static const int LaneM = cutlass::const_min(numElementsA, ThreadTileM);
   static const int LaneN = cutlass::const_min(numElementsB, ThreadTileN);
 
@@ -2533,6 +2552,8 @@ struct DefaultMmaCore<Shape_, WarpShape_, InstructionShape_, ElementA_,
                 "Padding must be divisible by Lane");
 
   // these should have max of thread tile also
+  //
+  // Tile shape of single thread.
   using LaneMmaShape = cutlass::gemm::GemmShape<
       LaneM,
       LaneN,

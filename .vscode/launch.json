@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Pure C++ Debug",
+            "type": "cppdbg",
+            "request": "launch",
+            // Customize `"program"` entry to your C++ executable path.
+            "program": "/home/yangjianchao/Github/cutlass/build-Debug/tools/profiler/cutlass_profiler",
+            "args": ["--operation=gemm", "--m=1024", "--k=1024", "--n=1024"],
+            "cwd": "${workspaceFolder}",
+            "MIMode": "gdb",
+            "environment": [
+                {"name": "LD_BIND_NOW", "value": "0"}
+            ],
+            "setupCommands": [
+                {"text": "set auto-load-scripts off"}
+            ]
+        },
+    ],
+}

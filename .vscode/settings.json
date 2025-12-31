@@ -9,5 +9,8 @@
         "--background-index=false"
     ],
     "C_Cpp.inlayHints.autoDeclarationTypes.showOnLeft": true,
-    "C_Cpp.inlayHints.autoDeclarationTypes.enabled": true
+    "C_Cpp.inlayHints.autoDeclarationTypes.enabled": true,
+    "python-envs.defaultEnvManager": "ms-python.python:conda",
+    "python-envs.defaultPackageManager": "ms-python.python:conda",
+    "python-envs.pythonProjects": []
 }
